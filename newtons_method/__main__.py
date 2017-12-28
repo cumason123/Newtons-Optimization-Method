@@ -3,6 +3,7 @@ import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt
 import copy
+from numpy import matrix
 
 
 def find_inverse_simple_jacobian(jacobian, x1, x1_guess, x2, x2_guess):#assumes jacobian matrix is balanced
@@ -10,9 +11,8 @@ def find_inverse_simple_jacobian(jacobian, x1, x1_guess, x2, x2_guess):#assumes 
     for x in range(len(new_jacobian)):
         for y in range(len(new_jacobian[0])):
             new_jacobian[x][y] = float(new_jacobian[x][y].subs([(x1, x1_guess), (x2,x2_guess)]).evalf())
-    return np.array([[new_jacobian[1][1], -(new_jacobian[0][1])],
-                                 [-(new_jacobian[1][0]), new_jacobian[0][0]]]) * \
-                       1 / (new_jacobian[0][0] * new_jacobian[1][1] - new_jacobian[0][1] * new_jacobian[1][0])
+    print('jacobian: {0}'.format(new_jacobian.tolist()))
+    return np.array(matrix(new_jacobian.tolist()).I)
 
 
 def make_guess(guess = None):
@@ -20,7 +20,7 @@ def make_guess(guess = None):
         print('Guess is None')
         x1 = Symbol('x1')
         x2 = Symbol('x2')
-        f1 = 3*(x1**2) + 2*(x2**2) - 25
+        f1 = sin(2*x1 + 3*x2)
         f2 = 2*(x1**2) - x2 - 15
 
         x1_df1 = diff(f1, x1)
@@ -54,6 +54,7 @@ def make_guess(guess = None):
     evaluation = np.array([f1_eval, f2_eval])
 
     inverse_jacobian = find_inverse_simple_jacobian(jacobian, x1, x1_guess, x2, x2_guess)
+    print(inverse_jacobian)
     result = start_val - np.matmul(inverse_jacobian, [float(x) for x in evaluation])
     return {'x1_df1':x1_df1,'x2_df1':x2_df1,
             'x1_df2':x1_df2,'x2_df2':x2_df2,
