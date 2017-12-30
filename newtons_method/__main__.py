@@ -10,7 +10,7 @@ class NonlinearSystems(object):
     def __init__(self, equation, data, initial_guess=None):
         """
         Optimizes an equation such that the equation fits onto a set of data
-        
+
         :param data: 2D list or numpy array with paired data of shape (None, 2)
 
                 Example 1: data = [(x1, y1), (x2, y2), (x3, y3), ...]
@@ -32,8 +32,9 @@ class NonlinearSystems(object):
         self.equation = equation
         self.nonlinear_functions = [y_point - equation.subs('X', x_point)
                                     for x_point, y_point in data]
-        self.parametric_symbols = [str(symbol) for symbol in list(equation.free_symbols)]
-        if initial_guess is not None:
+        self.parametric_symbols = [str(symbol) for symbol in list(equation.free_symbols) if
+                                   str(symbol) != 'X']
+        if initial_guess is None:
             self.initial_guess = {symbol: 1 for symbol in self.parametric_symbols}
         else:
             self.initial_guess = initial_guess
@@ -41,7 +42,6 @@ class NonlinearSystems(object):
             [diff(func, symbol) for symbol in self.parametric_symbols]
             for func in self.nonlinear_functions
         ]
-        self.evaluation = [self.nonlinear_functions.subs()]
 
     def find_inverse_simple_jacobian(self, jacobian, parameters):
         """
@@ -50,106 +50,85 @@ class NonlinearSystems(object):
 
         :param jacobian: a 2D list representing a sympy
             generated symbolic jacobian matrix
+
         :param parameters: dictionary where key's are function parameter
             symbols, values are their substitution value
-        :return:
+
+        :return: np.array of the evaluated inverse_jacobian matrix
         """
 
         # Creates a new matrix
         new_jacobian = copy.copy(jacobian)
-
+        new_jacobian = np.array(new_jacobian)
         # Converts symbolic math into floating point values
         for x in range(len(new_jacobian)):
             for y in range(len(new_jacobian[0])):
                 new_jacobian[x][y] = float(new_jacobian[x][y].subs(
-                    [(symbol_key, parameters[symbol_key]) for symbol_key in self.symbols]
+                    [(symbol_key, parameters[symbol_key]) for symbol_key in self.parametric_symbols]
                 ).evalf())
         return np.array(matrix(new_jacobian.tolist()).I)
 
     def make_guess(self, guess=None):
         """
+        Utilizes one cycle of Newton's Method for optimization based on a given guess
 
-        :param guess:
-        :return:
+        :param guess: a dict where keys are parametric symbols, and values are
+            parametric symbolic values to be substituted into the function during
+            optimization
+
+        :return: a dict of the newly optimized guess parameters
+            where keys are parametric symbols and values are optimized values
         """
 
         if guess is None:
-            print('Guess is None')
-            x1 = Symbol('x1')
-            x2 = Symbol('x2')
-            f1 = sin(2*x1 + 3*x2)
-            f2 = 2*(x1**2) - x2 - 15
+            guess = self.initial_guess
 
-            x1_df1 = diff(f1, x1)
-            x2_df1 = diff(f1, x2)
-
-            x1_df2 = diff(f2, x1)
-            x2_df2 = diff(f2, x2)
-
-            x1_guess = 1
-            x2_guess = 1
-            print('x1_guess, x2_guess: {0}, {1}'.format(x1_guess, x2_guess))
-        else:
-            x1_df1 = guess['x1_df1']
-            x2_df1 = guess['x2_df1']
-            x1_df2 = guess['x1_df2']
-            x2_df2 = guess['x2_df2']
-
-            x1 = guess['x1']
-            x2 = guess['x2']
-            f1 = guess['f1']
-            f2 = guess['f2']
-
-            x1_guess = guess['x1_guess']
-            x2_guess = guess['x2_guess']
-            print('x1_guess, x2_guess: {0}, {1}'.format(x1_guess, x2_guess))
-
-        start_val = [self.initial_guess[symbol] for symbol in self.initial_guess]
+        start_val = [self.initial_guess[symbol] for symbol in self.parametric_symbols]
         jacobian = self.jacobian
 
-        f1_eval = f1.subs([(x1,x1_guess), (x2, x2_guess)]).evalf()
-        f2_eval = f2.subs([(x1,x1_guess), (x2, x2_guess)]).evalf()
-        evaluation = np.array([f1_eval, f2_eval])
+        evaluation = self.evaluation = [float(func.subs([(symbol, self.initial_guess[symbol])
+                                            for symbol in self.parametric_symbols]).evalf()) for
+                           func in self.nonlinear_functions]
 
-        inverse_jacobian = self.find_inverse_simple_jacobian(jacobian, x1, x1_guess, x2, x2_guess)
-        print(inverse_jacobian)
-        result = start_val - np.matmul(inverse_jacobian, [float(x) for x in evaluation])
-        return {'x1_df1':x1_df1,'x2_df1':x2_df1,
-                'x1_df2':x1_df2,'x2_df2':x2_df2,
-                'x1':x1,'x2':x2,'f1':f1,'f2':f2,
-                'x1_guess':result[0],'x2_guess':result[1]}
+        inverse_jacobian = self.find_inverse_simple_jacobian(jacobian, guess)
+        result = start_val - np.matmul(inverse_jacobian, [x for x in evaluation])
+        for index, key in enumerate(self.parametric_symbols):
+            self.initial_guess[key] = result[index]
 
+    def train(self, cycles=100):
+        for _ in range(cycles):
+            print('Cycle: {0}'.format(_))
+            self.make_guess(self.initial_guess)
 
-    def plot(self, cycles=50):
-        initial_guess = self.make_guess()
-        f1, f2, x1, x2 = initial_guess['f1'], initial_guess['f2'], initial_guess['x1'], initial_guess['x2']
-        f1_y = [f1.subs([(x1,initial_guess['x1_guess']),(x2,initial_guess['x2_guess'])])]
-        f2_y = [f2.subs([(x1,initial_guess['x1_guess']),(x2,initial_guess['x2_guess'])])]
-        f1_x = np.arange(cycles)
-        f2_x = np.arange(cycles)
+    def fit(self, independent):
+        fit = self.equation.subs([(symbol, self.initial_guess[symbol]) for symbol in
+                                       self.initial_guess])
+        newfit = lambda x: float(fit.subs('X', x).evalf())
+        return [newfit(x) for x in independent]
 
-        for _ in range(cycles-1):
+if __name__ == '__main__':
+    x_points = np.linspace(0, 10, 50)
 
-            try:
-                print('\n'+str(_)+':')
-                if _ == 0:
-                    items = self.make_guess(guess=initial_guess)
-                else:
-                    items = self.make_guess(guess=items)
-                f1_y.append(f1.subs([(x1, items['x1_guess']), (x2, items['x2_guess'])]))
-                f2_y.append(f2.subs([(x1, items['x1_guess']), (x2, items['x2_guess'])]))
-            except AttributeError:
-                break
-        print(len(f2_x))
-        print(len(f1_x))
-        fig = plt.figure()
-        plt.plot(f1_x, f1_y, 'r--', f2_x, f2_y, 'k')
-        plt.show()
-        plt.waitforbuttonpress(0)
+    x = Symbol('X')
+    a = Symbol('a')
+    b = Symbol('b')
+    c = Symbol('c')
+    d = Symbol('d')
 
-        plt.close()
-        plt.clf()
+    func = a*x*sin(x)+b
+    newfunc = func.subs([('a', 3), ('b', 5), ('c', 2.3), ('d', 1.7)])
+    f = lambda independent: float(newfunc.subs('X', independent).evalf())
+    y_points = [f(_) for _ in x_points]
+    data = [(x_points[_], y_points[_]) for _ in range(len(x_points))]
+    obj = NonlinearSystems(func, data)
+    obj.train()
 
-if __name__=='__main__':
-    obj = NonlinearSystems()
-    obj.plot()
+    print(obj.initial_guess)
+    new_y = obj.fit(x_points)
+    x_points = np.linspace(0, 100, 300)
+    new_y = obj.fit(x_points)
+    y_points = [f(_) for _ in x_points]
+    plt.plot(x_points, y_points, 'k*', x_points, new_y, 'k')
+    plt.show()
+    #plt.plot(x_points, np.array(y_points)-np.array(new_y), 'k')
+    #plt.show()
