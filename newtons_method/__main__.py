@@ -7,18 +7,72 @@ from numpy import matrix
 
 
 class NonlinearSystems(object):
-    def __init__(self, equations=None):
-        self.equations = equations
+    def __init__(self, equation, data, initial_guess=None):
+        """
+        Optimizes an equation such that the equation fits onto a set of data
+        
+        :param data: 2D list or numpy array with paired data of shape (None, 2)
 
-    def find_inverse_simple_jacobian(self, jacobian, x1, x1_guess, x2, x2_guess):#assumes jacobian matrix is balanced
+                Example 1: data = [(x1, y1), (x2, y2), (x3, y3), ...]
+                Example 2: data = [[x1, y1], [x2, y2], [x3, y3], ...]
+                Example 3: data = np.array([(x1, y1), [x2, y2], (x3, y3), ...])
+
+        :param equation: sympy symbolic equation to be optimized based
+            on given datapoints
+
+                Example: equation = Symbol('X')**2 + Symbol('A')
+                    where Symbol('X') is the independent variable and must be present
+
+        :param initial_guess: a dict where keys are symbols,
+            values are corresponding symbolic values
+
+            Example: initial_guess = {'a':6, 'b':3, ...}
+        """
+        self.data = np.array(data)
+        self.equation = equation
+        self.nonlinear_functions = [y_point - equation.subs('X', x_point)
+                                    for x_point, y_point in data]
+        self.parametric_symbols = [str(symbol) for symbol in list(equation.free_symbols)]
+        if initial_guess is not None:
+            self.initial_guess = {symbol: 1 for symbol in self.parametric_symbols}
+        else:
+            self.initial_guess = initial_guess
+        self.jacobian = [
+            [diff(func, symbol) for symbol in self.parametric_symbols]
+            for func in self.nonlinear_functions
+        ]
+        self.evaluation = [self.nonlinear_functions.subs()]
+
+    def find_inverse_simple_jacobian(self, jacobian, parameters):
+        """
+        Converts a given symbolic jacobian array into
+        it's appropriate inverse jacobian matrix
+
+        :param jacobian: a 2D list representing a sympy
+            generated symbolic jacobian matrix
+        :param parameters: dictionary where key's are function parameter
+            symbols, values are their substitution value
+        :return:
+        """
+
+        # Creates a new matrix
         new_jacobian = copy.copy(jacobian)
+
+        # Converts symbolic math into floating point values
         for x in range(len(new_jacobian)):
             for y in range(len(new_jacobian[0])):
-                new_jacobian[x][y] = float(new_jacobian[x][y].subs([(x1, x1_guess), (x2,x2_guess)]).evalf())
+                new_jacobian[x][y] = float(new_jacobian[x][y].subs(
+                    [(symbol_key, parameters[symbol_key]) for symbol_key in self.symbols]
+                ).evalf())
         return np.array(matrix(new_jacobian.tolist()).I)
 
+    def make_guess(self, guess=None):
+        """
 
-    def make_guess(self, guess = None):
+        :param guess:
+        :return:
+        """
+
         if guess is None:
             print('Guess is None')
             x1 = Symbol('x1')
@@ -49,8 +103,9 @@ class NonlinearSystems(object):
             x1_guess = guess['x1_guess']
             x2_guess = guess['x2_guess']
             print('x1_guess, x2_guess: {0}, {1}'.format(x1_guess, x2_guess))
-        start_val = np.array([x1_guess, x2_guess])
-        jacobian = np.array([[x1_df1, x2_df1],[x1_df2, x2_df2]])
+
+        start_val = [self.initial_guess[symbol] for symbol in self.initial_guess]
+        jacobian = self.jacobian
 
         f1_eval = f1.subs([(x1,x1_guess), (x2, x2_guess)]).evalf()
         f2_eval = f2.subs([(x1,x1_guess), (x2, x2_guess)]).evalf()
