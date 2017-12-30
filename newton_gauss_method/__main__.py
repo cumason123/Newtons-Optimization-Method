@@ -5,20 +5,20 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     # Independent Values
-    x_points = np.arange(50)
+    x_points = np.arange(4)
 
     # Symbols
-    x = Symbol('X')
+    x = Symbol('x')
     a, b, c, d = Symbol('a'), Symbol('b'), Symbol('c'), Symbol('d')
 
     # Function type to approximate onto data
-    func = a*log(b*x+c)+d
+    func = a*sin(b*x+c)+d
 
     # Parameters to determine
     newfunc = func.subs([('a', 3), ('b', 30), ('c', 18.3), ('d', 1.7)])
 
     # Test Function
-    f = lambda independent: float(newfunc.subs('X', independent).evalf())
+    f = lambda independent: float(newfunc.subs('x', independent).evalf())
 
     # Adds noise to y values
     y_points = np.array([f(x) for x in x_points]) + np.random.random()
@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     # 10 cycles of Newton's Method
     obj = NonLinearSystems(func, data)
-    obj.train(cycles=10)
+    obj.train(cycles=100)
 
     # Returns yhat vals
     new_y = obj.fit(x_points, best_fit=True)

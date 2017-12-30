@@ -16,8 +16,8 @@ class NonLinearSystems(object):
         :param equation: sympy symbolic equation to be optimized based
             on given datapoints
 
-                Example: equation = Symbol('X')**2 + Symbol('A')
-                    where Symbol('X') is the independent variable and must be present
+                Example: equation = Symbol('x')**2 + Symbol('A')
+                    where Symbol('x') is the independent variable and must be present
 
         :param initial_guess: a dict where keys are symbols,
             values are corresponding symbolic values
@@ -26,10 +26,10 @@ class NonLinearSystems(object):
         """
         self.data = np.array(data)
         self.equation = equation
-        self.nonlinear_functions = [y_point - equation.subs('X', x_point)
+        self.nonlinear_functions = [y_point - equation.subs('x', x_point)
                                     for x_point, y_point in data]
         self.parametric_symbols = [str(symbol) for symbol in list(equation.free_symbols) if
-                                   str(symbol) != 'X']
+                                   str(symbol) != 'x']
         if initial_guess is None:
             self.initial_guess = {symbol: 1 for symbol in self.parametric_symbols}
         else:
@@ -112,7 +112,7 @@ class NonLinearSystems(object):
         else:
             fit = self.equation.subs([(symbol, self.params['params'][symbol]) for symbol in
                                       self.initial_guess])
-        newfit = lambda x: float(fit.subs('X', x).evalf())
+        newfit = lambda x: float(fit.subs('x', x).evalf())
         return [newfit(x) for x in independent]
 
     def train(self, cycles=7):
