@@ -2,6 +2,8 @@ from sympy import *
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import matrix
+
+
 class NonLinearSystems(object):
     def __init__(self, equation, data, initial_guess=None):
         """
