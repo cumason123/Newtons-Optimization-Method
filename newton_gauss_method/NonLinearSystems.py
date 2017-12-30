@@ -140,3 +140,9 @@ class NonLinearSystems(object):
                 print('Residual Squared Sum: {0}\n'.format(residual_sum))
             except KeyError:
                 print("Whoops, that shouldn't happen")
+
+    def __repr__(self):
+        try:
+            return str(self.equation.subs([(symbol, self.params['params'][symbol]) for symbol in self.parametric_symbols]))
+        except KeyError:
+            return 'Please Train!'
