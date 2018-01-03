@@ -6,20 +6,19 @@ from numpy import matrix
 
 class NonLinearSystems(object):
     def __init__(self, equation, data, initial_guess=None):
-        """
-        Optimizes an equation such that the equation fits onto a set of data
+        """Optimizes an equation such that the equation fits onto a set of data
 
         :param data: 2D list or numpy array with paired data of shape (None, 2)
 
-                Example 1: data = [(x1, y1), (x2, y2), (x3, y3), ...]
-                Example 2: data = [[x1, y1], [x2, y2], [x3, y3], ...]
-                Example 3: data = np.array([(x1, y1), [x2, y2], (x3, y3), ...])
+            Example 1: data = [(x1, y1), (x2, y2), (x3, y3), ...]
+            Example 2: data = [[x1, y1], [x2, y2], [x3, y3], ...]
+            Example 3: data = np.array([(x1, y1), [x2, y2], (x3, y3), ...])
 
         :param equation: sympy symbolic equation to be optimized based
             on given datapoints
 
-                Example: equation = Symbol('x')**2 + Symbol('A')
-                    where Symbol('x') is the independent variable and must be present
+            Example: equation = Symbol('x')**2 + Symbol('A')
+                where Symbol('x') is the independent variable and must be present
 
         :param initial_guess: a dict where keys are symbols,
             values are corresponding symbolic values
@@ -33,7 +32,7 @@ class NonLinearSystems(object):
         self.parametric_symbols = [str(symbol) for symbol in list(equation.free_symbols) if
                                    str(symbol) != 'x']
         if initial_guess is None:
-            self.initial_guess = {symbol: 1 for symbol in self.parametric_symbols}
+            self.initial_guess = {symbol: .98 for symbol in self.parametric_symbols}
         else:
             self.initial_guess = initial_guess
         self.jacobian = [
@@ -42,11 +41,10 @@ class NonLinearSystems(object):
         ]
         self.params = {}
 
-    def find_inverse_simple_jacobian(self, parameters):
-        """
-        Converts a given symbolic jacobian array into
 
-        it's appropriate inverse jacobian matrix
+    def find_inverse_simple_jacobian(self, parameters):
+        """Converts a given symbolic jacobian array into it's
+        appropriate inverse jacobian matrix
 
         :param jacobian: a 2D list representing a sympy
             generated symbolic jacobian matrix
@@ -54,14 +52,14 @@ class NonLinearSystems(object):
         :param parameters: dictionary where key's are function parameter
             symbols, values are their substitution value
 
-        :return: np.array of the evaluated inverse_jacobian matrix
+        :returns: np.array of the evaluated inverse_jacobian matrix
         """
 
         # Creates a new matrix
         new_jacobian = np.array(self.jacobian)
 
         # Turns symbolic expressions into floating point numbers
-        newer_jacobian = [
+        newer_jacobian = np.array([
             [
                 float(
                     index.subs([
@@ -69,19 +67,20 @@ class NonLinearSystems(object):
                         for symbol_key in self.parametric_symbols
                     ]))
                 for index in item] for item in new_jacobian
-        ]
-
+        ])
+        print('Smallest val: {0}'.format(min(map(abs,
+                                                 newer_jacobian.flatten()))))
+        print('Entire Jacobian: {0}\n'.format(newer_jacobian))
         return np.array(matrix(newer_jacobian).I)
 
     def make_guess(self, guess=None):
-        """
-        Utilizes one cycle of Newton's Method for optimization based on a given guess
+        """Utilizes one cycle of Newton's Method for optimization based on a given guess
 
         :param guess: a dict where keys are parametric symbols, and values are
             parametric symbolic values to be substituted into the function during
             optimization
 
-        :return: a dict of the newly optimized guess parameters
+        :returns: a dict of the newly optimized guess parameters
             where keys are parametric symbols and values are optimized values
         """
 
@@ -98,8 +97,7 @@ class NonLinearSystems(object):
             self.initial_guess[key] = result[index]
 
     def fit(self, independent, best_fit=False):
-        """
-        Takes a list of independent values and generates yhat vals accordingly
+        """Takes a list of independent values and generates yhat vals accordingly
 
         :param independent: a list of x values to fit
         :param best_fit: boolean deciding whether to return the optimized parameters
@@ -148,3 +146,4 @@ class NonLinearSystems(object):
             return str(self.equation.subs([(symbol, self.params['params'][symbol]) for symbol in self.parametric_symbols]))
         except KeyError:
             return 'Please Train!'
+
